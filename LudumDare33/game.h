@@ -6,7 +6,9 @@ struct SDLAPP;
 class GameState {
 	int buttonMap[NOOF_BUTTONS];
 
-	// Game State
+	SDLAPP* app;
+
+	// Textures
 	SDL_Surface *pGround;
 	SDL_Surface *pHouse;
 	SDL_Surface *pRoad;
@@ -15,10 +17,14 @@ class GameState {
 	SDL_Texture *pTexHouse;
 	SDL_Texture *pTexRoad;
 
+	// Camera
 	SDL_Rect MapSize;
 	SDL_Point camScroll;
 
-	SDLAPP* app;
+	// Player
+	SDL_Point playerPos;	
+
+	void DrawRect(SDL_Point &p, int w, int h, const SDL_Color& col);
 
 public:
 	void StartGame(SDLAPP *_app);

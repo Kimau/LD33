@@ -5,6 +5,19 @@
 
 #define PIX_MULTI 6
 
+// Useful Functions
+
+void GameState::DrawRect(SDL_Point &p, int w, int h, const SDL_Color& col)
+{
+	SDL_SetRenderDrawColor(app->renderer, col.r, col.g, col.b, col.a);
+	SDL_RenderFillRect(app->renderer, &SDL_Rect{ p.x - camScroll.x - w, p.y - camScroll.y - h, w, h });
+
+	SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 128);
+	SDL_RenderDrawRect(app->renderer, &SDL_Rect{ p.x - camScroll.x - w, p.y - camScroll.y - h, w, h });
+}
+
+//////////////////////////////////////////////////////////////////////////
+
 void GameState::StartGame(SDLAPP *_app) {
   app = _app;
 
@@ -12,15 +25,23 @@ void GameState::StartGame(SDLAPP *_app) {
   pHouse = LoadBMP("house.bmp");
   pRoad = LoadBMP("road.bmp");
 
-  SDL_SetColorKey(pHouse, SDL_TRUE, ((Uint16 *)pHouse->pixels)[0]);
+  SDL_LockSurface(pHouse);
+  ExtractHouses((uint16_t*)pHouse->pixels, pHouse->clip_rect.w, pHouse->clip_rect.h);
+  SDL_UnlockSurface(pHouse);
+
   SDL_SetColorKey(pRoad, SDL_TRUE, ((Uint16 *)pRoad->pixels)[0]);
 
   pTexGround = SDL_CreateTextureFromSurface(app->renderer, pGround);
   pTexHouse = SDL_CreateTextureFromSurface(app->renderer, pHouse);
+  SDL_SetTextureBlendMode(pTexHouse, SDL_BLENDMODE_BLEND);
   pTexRoad = SDL_CreateTextureFromSurface(app->renderer, pRoad);
 
   MapSize = pGround->clip_rect;
   camScroll = SDL_Point{0, 0};
+
+  // Player
+
+  playerPos = SDL_Point{ 100, 200 };
 }
 
 void GameState::Render() {
@@ -32,12 +53,15 @@ void GameState::Render() {
   SDL_RenderDrawLine(app->renderer, 10, 10, 200, 200);
 
   SDL_Rect tarRect =
-      SDL_Rect{-camScroll.x * PIX_MULTI, -camScroll.y * PIX_MULTI,
+      SDL_Rect{-camScroll.x, -camScroll.y,
                MapSize.w * PIX_MULTI, MapSize.h * PIX_MULTI};
 
   SDL_RenderCopy(app->renderer, pTexGround, &pGround->clip_rect, &tarRect);
   SDL_RenderCopy(app->renderer, pTexRoad, &pGround->clip_rect, &tarRect);
   SDL_RenderCopy(app->renderer, pTexHouse, &pGround->clip_rect, &tarRect);
+
+  DrawRect(playerPos, 14, 14, SDL_Color{ 200, 0, 0, 255 });
+
 
   SDL_RenderPresent(app->renderer);
 }
@@ -45,16 +69,16 @@ void GameState::Render() {
 void GameState::Update() {
   // Debug Camera Scroll
   camScroll.x +=
-      ((buttonMap[B_LEFT] > 0) ? -1 : 0) + ((buttonMap[B_RIGHT] > 0) ? +1 : 0);
+      ((buttonMap[B_LEFT] > 0) ? -10 : 0) + ((buttonMap[B_RIGHT] > 0) ? +10 : 0);
   camScroll.y +=
-      ((buttonMap[B_UP] > 0) ? -1 : 0) + ((buttonMap[B_DOWN] > 0) ? +1 : 0);
+      ((buttonMap[B_UP] > 0) ? -10 : 0) + ((buttonMap[B_DOWN] > 0) ? +10 : 0);
 
   if (camScroll.x < 0) camScroll.x = 0;
   if (camScroll.y < 0) camScroll.y = 0;
-  if (camScroll.x > MapSize.w - app->width / PIX_MULTI)
-    camScroll.x = MapSize.w - app->width / PIX_MULTI;
-  if (camScroll.y > MapSize.h - app->height / PIX_MULTI)
-    camScroll.y = MapSize.h - app->height / PIX_MULTI;
+  if (camScroll.x > (MapSize.w*PIX_MULTI) - app->width)
+	  camScroll.x = (MapSize.w*PIX_MULTI) - app->width;
+  if (camScroll.y > (MapSize.h*PIX_MULTI) - app->height)
+	  camScroll.y = (MapSize.h*PIX_MULTI) - app->height;
 
   // Clear Buttons
   for (int b = NOOF_BUTTONS - 1; b >= 0; --b) {
@@ -108,3 +132,7 @@ void GameState::GameEvent(SDL_Event *evt) {
     } break;
   }
 }
+
+
+//
+

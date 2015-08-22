@@ -45,9 +45,8 @@ void FloodHouse(uint16_t* pixs, std::list<SDL_Point>& house, int x, int y,
   if ((y < 0) || (x < 0) || (x > (w - 1)) || (y > (h - 1))) return;
 
   int c = x + y * w;
-  if ((pixs[c] & 0xF) != 0xF) 
-	  return;
-  
+  if ((pixs[c] & 0xF) != 0xF) return;
+
   pixs[c] = 0xF00A;
   house.push_back(SDL_Point{x, y});
 

@@ -29,23 +29,18 @@ int SetupSprites(uint16_t* pixs, SDL_Rect* pxSz, int sprSheetNum);
 
 // VEC 2
 
-
-Vec2 Normalise(const Vec2& v)
-{
-	float l = sqrt(v.x * v.x + v.y * v.y);
-	return Vec2{ v.x / l, v.y / l };
+Vec2 Normalise(const Vec2& v) {
+  float l = sqrt(v.x * v.x + v.y * v.y);
+  return Vec2{v.x / l, v.y / l};
 }
 
-Vec2 operator+(const Vec2& a, const Vec2& b)
-{
-	return Vec2{ a.x + b.x, a.y + b.y };
+Vec2 operator+(const Vec2& a, const Vec2& b) {
+  return Vec2{a.x + b.x, a.y + b.y};
 }
 
-Vec2 operator-(const Vec2& a, const Vec2& b)
-{
-	return Vec2{ a.x - b.x, a.y - b.y };
+Vec2 operator-(const Vec2& a, const Vec2& b) {
+  return Vec2{a.x - b.x, a.y - b.y};
 }
-
 
 // Load BMP
 
@@ -68,14 +63,13 @@ void FloodHouse(uint16_t* pixs, std::list<HousePoint>& house, int x, int y,
 
   int c = x + y * w;
   if ((pixs[c] & 0xF) != 0xF) return;
-  
+
   if (pixs[c] == 0xFFFF) {
-	  house.push_back(HousePoint{ x, y, true });
+    house.push_back(HousePoint{x, y, true});
+  } else if (pixs[c] == 0x000F) {
+    house.push_back(HousePoint{x, y, false});
   }
-  else {
-	  house.push_back(HousePoint{ x, y, false });
-  }
-  
+
   pixs[c] = 0xF00A;
 
   FloodHouse(pixs, house, x - 1, y - 1, w, h);
@@ -88,6 +82,103 @@ void FloodHouse(uint16_t* pixs, std::list<HousePoint>& house, int x, int y,
   FloodHouse(pixs, house, x + 1, y + 1, w, h);
 }
 
+bool WeakDoorSort(const HousePoint& a, const HousePoint& b) {
+  return (!a.isDoor) && (b.isDoor);
+}
+
+void OptimiseHouse(std::list<HousePoint>& house) {
+  int numPts = 0;
+  HousePoint* houseArr = new HousePoint[house.size()];
+  houseArr[numPts++] = house.front();
+  house.pop_front();
+
+  while (house.empty() == false) {
+    const HousePoint& e = houseArr[numPts - 1];
+    auto bp = house.begin();
+    int md = (e.x - bp->x) * (e.x - bp->x) + (e.y - bp->y) * (e.y - bp->y);
+    for (auto p = house.begin(); p != house.end(); ++p) {
+
+      int md_new = (e.x - p->x) * (e.x - p->x) + (e.y - p->y) * (e.y - p->y);
+      if (md_new < md) {
+        md = md_new;
+        bp = p;
+      }
+    }
+
+    houseArr[numPts++] = *bp;
+    house.erase(bp);
+  }
+
+  int di = numPts;
+
+  // Get Angles
+  HousePoint a = houseArr[numPts - 1];
+  HousePoint b = houseArr[0];
+  HousePoint c = houseArr[1];
+  di = 0;
+  for (int i = 0; i < numPts; ++i) {
+
+    if (a.isDoor && b.isDoor && c.isDoor) {
+      b = c;
+      c = houseArr[(i + 2) % numPts];
+	}
+	else if (b.isDoor) {
+		houseArr[di++] = houseArr[i];
+
+		a = b;
+		b = c;
+		c = houseArr[(i + 2) % numPts];
+	}
+	else{
+
+		if (
+			((abs(b.x - a.x) + abs(b.y - a.y)) < 2) && 
+			((abs(c.x - b.x) + abs(c.y - b.y)) < 2)) {
+        b = c;
+        c = houseArr[(i + 2) % numPts];
+        continue;
+      }
+
+      Vec2 dxA = Normalise(Vec2{c.x - b.x, c.y - b.y});
+      Vec2 dxB = Normalise(Vec2{b.x - a.x, b.y - a.y});
+
+      Vec2 dxC = dxA - dxB;
+	  
+      if (((dxC.x * dxC.x) + (dxC.y * dxC.y)) > 0.6) {
+        houseArr[di++] = houseArr[i];
+
+        a = b;
+        b = c;
+        c = houseArr[(i + 2) % numPts];
+      } else {
+        b = c;
+        c = houseArr[(i + 2) % numPts];
+      }
+    }
+  }
+
+  house.clear();
+  for (int i = 0; i < di; ++i) {
+    house.push_back(houseArr[i]);
+  }
+  delete houseArr;
+}
+
+void ClearBackground(uint16_t* pixs, int w, int h)
+{
+	// Clear Background
+	int bgCol = pixs[0];
+	int c = 0;
+	for (int y = 0; y < h; y++) {
+		for (int x = 0; x < w; x++) {
+			if (pixs[c] == bgCol) {
+				pixs[c] = 0;
+			}
+			++c;
+		}
+	}
+}
+
 std::list<std::list<HousePoint>> ExtractHouses(uint16_t* pixs, int w, int h) {
   int c = 0;
   std::list<std::list<HousePoint>> result;
@@ -95,17 +186,8 @@ std::list<std::list<HousePoint>> ExtractHouses(uint16_t* pixs, int w, int h) {
   uint16_t houseCol = 0x000F;
   uint16_t doorCol = 0xFFFF;
 
-  // Clear Confusion
-  c = 0;
-  for (int y = 0; y < h; y++) {
-    for (int x = 0; x < w; x++) {
-      if ((pixs[c] != houseCol) && (pixs[c] != doorCol)) {
-        pixs[c] = 0;
-      }
-      ++c;
-    }
-  }
-
+  ClearBackground(pixs, w, h);
+  
   // Edge Find
   c = 0;
   for (int y = 1; y < (h - 1); y++) {
@@ -124,100 +206,15 @@ std::list<std::list<HousePoint>> ExtractHouses(uint16_t* pixs, int w, int h) {
     for (int x = 0; x < w; x++) {
       if ((pixs[c] & 0xF) == 0xF) {
         // Scan for House
-		  std::list<HousePoint> house;
+        std::list<HousePoint> house;
         FloodHouse(pixs, house, x, y, w, h);
 
-        int numPts = 0;
-		HousePoint* houseArr = new HousePoint[house.size()];
-        houseArr[numPts++] = house.front();
-        house.pop_front();
+        house.sort(WeakDoorSort);
 
-        while (house.empty() == false) {
-			HousePoint e = houseArr[numPts - 1];
-          auto bp = house.begin();
-          int md =
-              (e.x - bp->x) * (e.x - bp->x) + (e.y - bp->y) * (e.y - bp->y);
-          for (auto p = house.begin(); p != house.end(); ++p) {
-            int md_new =
-                (e.x - p->x) * (e.x - p->x) + (e.y - p->y) * (e.y - p->y);
-            if (md_new < md) {
-              md = md_new;
-              bp = p;
-            }
-          }
+        OptimiseHouse(house);
 
-          houseArr[numPts++] = *bp;
-          house.erase(bp);
-        }
-
-        // Get Angles
-		HousePoint a = houseArr[numPts - 1];
-		HousePoint b = houseArr[0];
-		HousePoint c = houseArr[1];
-        int di = 0;
-        for (int i = 0; i < numPts; ++i) {
-          if (a.isDoor && b.isDoor && c.isDoor) {
-            b = c;
-            c = houseArr[(i + 2) % numPts];
-          } else if (!a.isDoor && b.isDoor) {
-            houseArr[di].x = houseArr[i].x;
-            houseArr[di].y = houseArr[i].y;
-            houseArr[di++] = houseArr[i];
-
-            a = b;
-            b = c;
-            c = houseArr[(i + 2) % numPts];
-          } else if (a.isDoor && !b.isDoor) {
-			houseArr[di] = houseArr[di-1];
-            houseArr[di++].isDoor = false;
-
-            a = b;
-            b = c;
-            c = houseArr[(i + 2) % numPts];
-          } else if ((a.isDoor != b.isDoor) || (b.isDoor != c.isDoor)) {
-            houseArr[di++] = houseArr[i];
-
-            a = b;
-            b = c;
-            c = houseArr[(i + 2) % numPts];
-		  }
-		  else {
-			  if ((abs(b.x - a.x) + abs(b.y - a.y))< 2) {
-				  b = c;
-				  c = houseArr[(i + 2) % numPts];
-				  continue;
-			  }
-			  
-			  Vec2 dxA = Normalise(Vec2{ c.x - b.x, c.y - b.y });
-			  Vec2 dxB = Normalise(Vec2{ b.x - a.x, b.y - a.y });
-
-			  Vec2 dxC = dxA - dxB;
-
-			  // SDL_Log("%+.01f:%+.01f  \t %+.01f:%+.01f  \t %+.01f:%+.01f", dxA.x,
-			  // dxA.y, dxB.x, dxB.y, dxC.x, dxC.y);
-
-			  if (((dxC.x * dxC.x) + (dxC.y * dxC.y)) > 0.6) {
-				  houseArr[di++] = houseArr[i];
-
-				  a = b;
-				  b = c;
-				  c = houseArr[(i + 2) % numPts];
-			  }
-			  else {
-				  b = c;
-				  c = houseArr[(i + 2) % numPts];
-			  }
-		  }
-        }
-		
-		std::list<HousePoint> sortedHouseList;
-        for (int i = 0; i < di; ++i) {
-          sortedHouseList.push_back(houseArr[i]);
-        }
-        delete houseArr;
-
-        SDL_Log("House with %d points", sortedHouseList.size());
-        result.push_back(sortedHouseList);
+        SDL_Log("House with %d points", house.size());
+        result.push_back(house);
       }
       ++c;
     }

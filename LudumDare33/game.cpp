@@ -14,6 +14,7 @@ struct House {
   SDL_Point *points;
   int numWallPts;
   int totalPts;
+  bool isRender;
 };
 static std::list<House> s_houses;
 
@@ -76,6 +77,7 @@ void BuildHouse(SDL_Renderer *pRender,
 
   SDL_RenderPresent(pRender);
   SDL_SetRenderTarget(pRender, NULL);
+  h.isRender = true;
 
   //
   s_houses.push_back(h);
@@ -86,12 +88,12 @@ void BuildHouse(SDL_Renderer *pRender,
 
 void GameState::DrawRect(SDL_Point &p, int w, int h, const SDL_Color &col) {
   SDL_SetRenderDrawColor(app->renderer, col.r, col.g, col.b, col.a);
-  SDL_RenderFillRect(app->renderer, &SDL_Rect{p.x - camScroll.x - w,
-                                              p.y - camScroll.y - h, w, h});
+  SDL_RenderFillRect(app->renderer, &SDL_Rect{p.x - camScroll.x - w/2,
+                                              p.y - camScroll.y - h/2, w, h});
 
   SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 128);
-  SDL_RenderDrawRect(app->renderer, &SDL_Rect{p.x - camScroll.x - w,
-                                              p.y - camScroll.y - h, w, h});
+  SDL_RenderDrawRect(app->renderer, &SDL_Rect{p.x - camScroll.x - w/2,
+                                              p.y - camScroll.y - h/2, w, h});
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -100,7 +102,12 @@ void GameState::StartGame(SDLAPP *_app) {
 
   pGround = LoadBMP("ground.bmp");
   pHouse = LoadBMP("house.bmp");
-  pRoad = LoadBMP("road.bmp");
+  pGrad = LoadBMP("grad.bmp");
+
+  // Player
+  MapSize = pGround->clip_rect;
+  camScroll = SDL_Point{ 0, 0 };
+  playerPos = SDL_Point{ 0, 0 };
 
   // Setup Houses
   s_houses.clear();
@@ -115,19 +122,8 @@ void GameState::StartGame(SDLAPP *_app) {
     housesList.pop_front();
   }
 
-  // Setup Textures
-  SDL_SetColorKey(pRoad, SDL_TRUE, ((Uint16 *)pRoad->pixels)[0]);
-  pTexGround = SDL_CreateTextureFromSurface(app->renderer, pGround);
-  pTexHouse = SDL_CreateTextureFromSurface(app->renderer, pHouse);
-  SDL_SetTextureBlendMode(pTexHouse, SDL_BLENDMODE_BLEND);
-  pTexRoad = SDL_CreateTextureFromSurface(app->renderer, pRoad);
-
-  MapSize = pGround->clip_rect;
-  camScroll = SDL_Point{0, 0};
-
-  // Player
-
-  playerPos = SDL_Point{100, 200};
+  // Setup Ground
+  pTexLevel = SDL_CreateTextureFromSurface(app->renderer, pGround);
 }
 
 void GameState::Render() {
@@ -141,9 +137,7 @@ void GameState::Render() {
   SDL_Rect tarRect = SDL_Rect{-camScroll.x, -camScroll.y, MapSize.w * PIX_MULTI,
                               MapSize.h * PIX_MULTI};
 
-  SDL_RenderCopy(app->renderer, pTexGround, &pGround->clip_rect, &tarRect);
-  SDL_RenderCopy(app->renderer, pTexRoad, &pGround->clip_rect, &tarRect);
-  //SDL_RenderCopy(app->renderer, pTexHouse, &pGround->clip_rect, &tarRect);
+  SDL_RenderCopy(app->renderer, pTexLevel, &pGround->clip_rect, &tarRect);
 
   for (auto h : s_houses) {
     SDL_Rect r = h.bounds;
@@ -217,10 +211,21 @@ void GameState::GameEvent(SDL_Event *evt) {
       break;
     case SDL_MOUSEBUTTONDOWN:
     case SDL_MOUSEBUTTONUP:
-    case SDL_MOUSEWHEEL: {
-      auto pt = SDL_Point{evt->button.x, evt->button.y};
-      SDL_Log("Mouse %d,%d", pt.x, pt.y);
-    } break;
+	{
+		
+		auto pt = SDL_Point{ 
+			(evt->button.x * PIX_WIDTH / SCREEN_WIDTH) + camScroll.x,
+			(evt->button.y * PIX_HEIGHT  / SCREEN_HEIGHT) + camScroll.y };
+
+		playerPos = pt;
+
+		SDL_Log("Mouse %d,%d", pt.x, pt.y);
+		for (auto h : s_houses) {
+
+		}
+	}
+	
+    case SDL_MOUSEWHEEL:  break;
   }
 }
 

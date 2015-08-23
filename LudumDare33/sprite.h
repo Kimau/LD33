@@ -3,6 +3,7 @@
 
 int SetupSpritesFromFile(const char* filename);
 SDL_Surface* LoadBMP(const char* filename);
+void ClearBackground(uint16_t* pixs, int w, int h);
 
 struct HousePoint {
 	int x, y;

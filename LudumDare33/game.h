@@ -11,11 +11,9 @@ class GameState {
   // Textures
   SDL_Surface *pGround;
   SDL_Surface *pHouse;
-  SDL_Surface *pRoad;
+  SDL_Surface *pGrad;
 
-  SDL_Texture *pTexGround;
-  SDL_Texture *pTexHouse;
-  SDL_Texture *pTexRoad;
+  SDL_Texture *pTexLevel;
 
   // Camera
   SDL_Rect MapSize;

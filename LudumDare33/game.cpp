@@ -4,8 +4,6 @@
 #include "sprite.h"
 #include "game.h"
 
-#define PIX_MULTI 3
-#define PIX_HALF 1
 
 struct House {
   SDL_Point topLeft;
@@ -27,7 +25,7 @@ void BuildHouse(SDL_Renderer *pRender,
   h.points = new SDL_Point[h.totalPts];
   h.bounds = SDL_Rect{100000, 1000000, 0, 0};
   for (auto p : oh) {
-	  SDL_Point pt = SDL_Point{ p.x * PIX_MULTI + PIX_HALF, p.y * PIX_MULTI + PIX_HALF };
+	  SDL_Point pt = SDL_Point{ p.x * PIX_TILE + PIX_HALF, p.y * PIX_TILE + PIX_HALF };
 
     if (pt.x < h.bounds.x) h.bounds.x = pt.x;
     if (pt.y < h.bounds.y) h.bounds.y = pt.y;
@@ -127,43 +125,39 @@ void GameState::StartGame(SDLAPP *_app) {
 }
 
 void GameState::Render() {
-  SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 255);
-  SDL_RenderClear(app->renderer);
+	SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 255);
+	SDL_RenderClear(app->renderer);
 
-  // TODO :: Render
-  SDL_SetRenderDrawColor(app->renderer, 200, 0, 0, 255);
-  SDL_RenderDrawLine(app->renderer, 10, 10, 200, 200);
+	SDL_Rect tarRect = SDL_Rect{ -camScroll.x, -camScroll.y, MapSize.w * PIX_TILE,
+		MapSize.h * PIX_TILE };
 
-  SDL_Rect tarRect = SDL_Rect{-camScroll.x, -camScroll.y, MapSize.w * PIX_MULTI,
-                              MapSize.h * PIX_MULTI};
+	SDL_RenderCopy(app->renderer, pTexLevel, &pGround->clip_rect, &tarRect);
+	/*
+	for (auto h : s_houses) {
+		SDL_Rect r = h.bounds;
+		r.x = h.topLeft.x - camScroll.x;
+		r.y = h.topLeft.y - camScroll.y;
+		SDL_RenderCopy(app->renderer, h.houseTex, &h.bounds, &r);
+	}*/
 
-  SDL_RenderCopy(app->renderer, pTexLevel, &pGround->clip_rect, &tarRect);
+	DrawRect(playerPos, 6, 6, SDL_Color{ 200, 0, 0, 255 });
 
-  for (auto h : s_houses) {
-    SDL_Rect r = h.bounds;
-    r.x = h.topLeft.x - camScroll.x;
-    r.y = h.topLeft.y - camScroll.y;
-    SDL_RenderCopy(app->renderer, h.houseTex, &h.bounds, &r);
-  }
-
-  DrawRect(playerPos, 6, 6, SDL_Color{200, 0, 0, 255});
-
-  SDL_RenderPresent(app->renderer);
+	SDL_RenderPresent(app->renderer);
 }
 
 void GameState::Update() {
   // Debug Camera Scroll
-  camScroll.x += ((buttonMap[B_LEFT] > 0) ? -10 : 0) +
-                 ((buttonMap[B_RIGHT] > 0) ? +10 : 0);
-  camScroll.y +=
-      ((buttonMap[B_UP] > 0) ? -10 : 0) + ((buttonMap[B_DOWN] > 0) ? +10 : 0);
+  camScroll.x += ((buttonMap[B_LEFT] > 0) ? -PIX_TILE : 0) +
+                 ((buttonMap[B_RIGHT] > 0) ? +PIX_TILE : 0);
+  camScroll.y += ((buttonMap[B_UP] > 0) ? -PIX_TILE : 0) +
+                 ((buttonMap[B_DOWN] > 0) ? +PIX_TILE : 0);
 
   if (camScroll.x < 0) camScroll.x = 0;
   if (camScroll.y < 0) camScroll.y = 0;
-  if (camScroll.x > MapSize.w*PIX_MULTI - PIX_WIDTH)
-	  camScroll.x = MapSize.w*PIX_MULTI - PIX_WIDTH;
-  if (camScroll.y > MapSize.h*PIX_MULTI - PIX_HEIGHT)
-	  camScroll.y = MapSize.h*PIX_MULTI - PIX_HEIGHT;
+  if (camScroll.x > MapSize.w*PIX_TILE - PIX_WIDTH)
+	  camScroll.x = MapSize.w*PIX_TILE - PIX_WIDTH;
+  if (camScroll.y > MapSize.h*PIX_TILE - PIX_HEIGHT)
+	  camScroll.y = MapSize.h*PIX_TILE - PIX_HEIGHT;
 
   // Clear Buttons
   for (int b = NOOF_BUTTONS - 1; b >= 0; --b) {
@@ -214,8 +208,8 @@ void GameState::GameEvent(SDL_Event *evt) {
 	{
 		
 		auto pt = SDL_Point{ 
-			(evt->button.x * PIX_WIDTH / SCREEN_WIDTH) + camScroll.x,
-			(evt->button.y * PIX_HEIGHT  / SCREEN_HEIGHT) + camScroll.y };
+			(evt->button.x / PIX_MULTI) + camScroll.x,
+			(evt->button.y / PIX_MULTI) + camScroll.y };
 
 		playerPos = pt;
 

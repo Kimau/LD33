@@ -2,6 +2,8 @@
 #include "game.h"
 #include "global.h"
 
+bool bShowGrid = false;
+
 SDLAPP *CreateApp() {
   if (SDL_Init(SDL_INIT_VIDEO) != 0) {
     SDL_LogError(SDL_LOG_CATEGORY_SYSTEM, "SDL_Init");
@@ -54,6 +56,15 @@ int GameEventStep(SDLAPP *pApp, GameState *pGame) {
         }
         break;
 
+
+	  case SDL_KEYUP:
+		  switch (evt->key.keysym.scancode) {
+		  case SDL_SCANCODE_G:
+			  bShowGrid = !bShowGrid;
+		  };
+		  pGame->GameEvent(evt);
+		  break;
+
       case SDL_QUIT:
         SDL_Log("QUIT");
         return 0;
@@ -96,6 +107,15 @@ int main(int argc, char *argv[]) {
 	  Game.Render();
 	  SDL_SetRenderTarget(pApp->renderer, NULL);
 	  SDL_RenderCopy(pApp->renderer, pixTar, &srcRect, &destRect);
+
+	  if (bShowGrid) {
+			SDL_SetRenderDrawColor(pApp->renderer, 0, 0, 0, 255);
+			for (int x = 0; x < SCREEN_WIDTH; x += PIX_MULTI*PIX_TILE)
+				SDL_RenderDrawLine(pApp->renderer, x, 0, x, SCREEN_HEIGHT);
+
+			for (int y = 0; y < SCREEN_HEIGHT; y += PIX_MULTI*PIX_TILE) 
+				SDL_RenderDrawLine(pApp->renderer, 0, y, SCREEN_WIDTH, y);
+	  }
 
     // Sleep
     if ((pApp->frameLock) > (SDL_GetTicks() - pApp->frameStartTime)) {

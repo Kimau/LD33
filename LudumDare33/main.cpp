@@ -9,10 +9,7 @@ SDLAPP *CreateApp() {
   }
 
   SDLAPP *pApp = new SDLAPP();
-
-  pApp->width = SCREEN_WIDTH;
-  pApp->height = SCREEN_HEIGHT;
-
+  
   pApp->startTime = SDL_GetTicks();
   pApp->frameLock = 1000 / FRAME_RATE;
 
@@ -84,13 +81,21 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
+  SDL_Texture* pixTar = SDL_CreateTexture(pApp->renderer, SDL_PIXELFORMAT_RGB888, SDL_TEXTUREACCESS_TARGET, PIX_WIDTH, PIX_HEIGHT);
+  SDL_Rect srcRect = { 0, 0, PIX_WIDTH, PIX_HEIGHT };
+  SDL_Rect destRect = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
+  
   do {
-    int newTime = SDL_GetTicks();
-    pApp->frameDelta = newTime - pApp->frameStartTime;
-    pApp->frameStartTime = newTime;
+	  int newTime = SDL_GetTicks();
+	  pApp->frameDelta = newTime - pApp->frameStartTime;
+	  pApp->frameStartTime = newTime;
 
-    Game.Update();
-    Game.Render();
+	  Game.Update();
+
+	  SDL_SetRenderTarget(pApp->renderer, pixTar);
+	  Game.Render();
+	  SDL_SetRenderTarget(pApp->renderer, NULL);
+	  SDL_RenderCopy(pApp->renderer, pixTar, &srcRect, &destRect);
 
     // Sleep
     if ((pApp->frameLock) > (SDL_GetTicks() - pApp->frameStartTime)) {

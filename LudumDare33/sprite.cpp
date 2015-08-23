@@ -4,28 +4,6 @@
 #include "SDL.h"
 #include "sprite.h"
 
-struct Vec2 {
-  float x, y;
-
-  Vec2(float _x, float _y) : x{_x}, y{_y} {}
-  Vec2(int _x, int _y) {
-    x = (float)_x;
-    y = (float)_y;
-  }
-};
-
-Vec2 Normalise(const Vec2& v) {
-  float l = sqrt(v.x * v.x + v.y * v.y);
-  return Vec2{v.x / l, v.y / l};
-}
-
-Vec2 operator+(const Vec2& a, const Vec2& b) {
-  return Vec2{a.x + b.x, a.y + b.y};
-}
-Vec2 operator-(const Vec2& a, const Vec2& b) {
-  return Vec2{a.x - b.x, a.y - b.y};
-}
-
 struct SpriteData {
   enum Anchor {
     TOP_LEFT,
@@ -49,6 +27,28 @@ static std::list<SDL_Surface*> s_Surfaces;
 
 int SetupSprites(uint16_t* pixs, SDL_Rect* pxSz, int sprSheetNum);
 
+// VEC 2
+
+
+Vec2 Normalise(const Vec2& v)
+{
+	float l = sqrt(v.x * v.x + v.y * v.y);
+	return Vec2{ v.x / l, v.y / l };
+}
+
+Vec2 operator+(const Vec2& a, const Vec2& b)
+{
+	return Vec2{ a.x + b.x, a.y + b.y };
+}
+
+Vec2 operator-(const Vec2& a, const Vec2& b)
+{
+	return Vec2{ a.x - b.x, a.y - b.y };
+}
+
+
+// Load BMP
+
 SDL_Surface* LoadBMP(const char* filename) {
   SDL_Surface* loadSurf = SDL_LoadBMP(filename);
   if (loadSurf == 0) {
@@ -62,15 +62,21 @@ SDL_Surface* LoadBMP(const char* filename) {
   return newSurf;
 }
 
-void FloodHouse(uint16_t* pixs, std::list<SDL_Point>& house, int x, int y,
+void FloodHouse(uint16_t* pixs, std::list<HousePoint>& house, int x, int y,
                 int w, int h) {
   if ((y < 0) || (x < 0) || (x > (w - 1)) || (y > (h - 1))) return;
 
   int c = x + y * w;
   if ((pixs[c] & 0xF) != 0xF) return;
-
+  
+  if (pixs[c] == 0xFFFF) {
+	  house.push_back(HousePoint{ x, y, true });
+  }
+  else {
+	  house.push_back(HousePoint{ x, y, false });
+  }
+  
   pixs[c] = 0xF00A;
-  house.push_back(SDL_Point{x, y});
 
   FloodHouse(pixs, house, x - 1, y - 1, w, h);
   FloodHouse(pixs, house, x, y - 1, w, h);
@@ -82,9 +88,9 @@ void FloodHouse(uint16_t* pixs, std::list<SDL_Point>& house, int x, int y,
   FloodHouse(pixs, house, x + 1, y + 1, w, h);
 }
 
-std::list<std::list<SDL_Point>> ExtractHouses(uint16_t* pixs, int w, int h) {
+std::list<std::list<HousePoint>> ExtractHouses(uint16_t* pixs, int w, int h) {
   int c = 0;
-  std::list<std::list<SDL_Point>> result;
+  std::list<std::list<HousePoint>> result;
 
   uint16_t houseCol = 0x000F;
   uint16_t doorCol = 0xFFFF;
@@ -118,16 +124,16 @@ std::list<std::list<SDL_Point>> ExtractHouses(uint16_t* pixs, int w, int h) {
     for (int x = 0; x < w; x++) {
       if ((pixs[c] & 0xF) == 0xF) {
         // Scan for House
-        std::list<SDL_Point> house;
+		  std::list<HousePoint> house;
         FloodHouse(pixs, house, x, y, w, h);
 
         int numPts = 0;
-        SDL_Point* houseArr = new SDL_Point[house.size()];
+		HousePoint* houseArr = new HousePoint[house.size()];
         houseArr[numPts++] = house.front();
         house.pop_front();
 
         while (house.empty() == false) {
-          SDL_Point e = houseArr[numPts - 1];
+			HousePoint e = houseArr[numPts - 1];
           auto bp = house.begin();
           int md =
               (e.x - bp->x) * (e.x - bp->x) + (e.y - bp->y) * (e.y - bp->y);
@@ -145,32 +151,66 @@ std::list<std::list<SDL_Point>> ExtractHouses(uint16_t* pixs, int w, int h) {
         }
 
         // Get Angles
-        SDL_Point a = houseArr[numPts - 1];
-        SDL_Point b = houseArr[0];
-        SDL_Point c = houseArr[1];
+		HousePoint a = houseArr[numPts - 1];
+		HousePoint b = houseArr[0];
+		HousePoint c = houseArr[1];
         int di = 0;
         for (int i = 0; i < numPts; ++i) {
-          Vec2 dxA = Normalise(Vec2{c.x - b.x, c.y - b.y});
-          Vec2 dxB = Normalise(Vec2{b.x - a.x, b.y - a.y});
-
-          Vec2 dxC = dxA - dxB;
-
-          SDL_Log("%+.01f:%+.01f  \t %+.01f:%+.01f  \t %+.01f:%+.01f", dxA.x,
-                  dxA.y, dxB.x, dxB.y, dxC.x, dxC.y);
-
-          if (((dxC.x * dxC.x) + (dxC.y * dxC.y)) > 0.6) {
+          if (a.isDoor && b.isDoor && c.isDoor) {
+            b = c;
+            c = houseArr[(i + 2) % numPts];
+          } else if (!a.isDoor && b.isDoor) {
+            houseArr[di].x = houseArr[i].x;
+            houseArr[di].y = houseArr[i].y;
             houseArr[di++] = houseArr[i];
 
             a = b;
             b = c;
             c = houseArr[(i + 2) % numPts];
-          } else {
+          } else if (a.isDoor && !b.isDoor) {
+			houseArr[di] = houseArr[di-1];
+            houseArr[di++].isDoor = false;
+
+            a = b;
             b = c;
             c = houseArr[(i + 2) % numPts];
-          }
-        }
+          } else if ((a.isDoor != b.isDoor) || (b.isDoor != c.isDoor)) {
+            houseArr[di++] = houseArr[i];
 
-        std::list<SDL_Point> sortedHouseList;
+            a = b;
+            b = c;
+            c = houseArr[(i + 2) % numPts];
+		  }
+		  else {
+			  if ((abs(b.x - a.x) + abs(b.y - a.y))< 2) {
+				  b = c;
+				  c = houseArr[(i + 2) % numPts];
+				  continue;
+			  }
+			  
+			  Vec2 dxA = Normalise(Vec2{ c.x - b.x, c.y - b.y });
+			  Vec2 dxB = Normalise(Vec2{ b.x - a.x, b.y - a.y });
+
+			  Vec2 dxC = dxA - dxB;
+
+			  // SDL_Log("%+.01f:%+.01f  \t %+.01f:%+.01f  \t %+.01f:%+.01f", dxA.x,
+			  // dxA.y, dxB.x, dxB.y, dxC.x, dxC.y);
+
+			  if (((dxC.x * dxC.x) + (dxC.y * dxC.y)) > 0.6) {
+				  houseArr[di++] = houseArr[i];
+
+				  a = b;
+				  b = c;
+				  c = houseArr[(i + 2) % numPts];
+			  }
+			  else {
+				  b = c;
+				  c = houseArr[(i + 2) % numPts];
+			  }
+		  }
+        }
+		
+		std::list<HousePoint> sortedHouseList;
         for (int i = 0; i < di; ++i) {
           sortedHouseList.push_back(houseArr[i]);
         }

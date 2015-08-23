@@ -1,43 +1,51 @@
 #include "SDL.h"
+#include "SDL2_gfxPrimitives.h"
 #include "global.h"
 #include "sprite.h"
 #include "game.h"
 
-#define PIX_MULTI 6
+#define PIX_MULTI 3
+#define PIX_HALF 1
 
 struct House {
   SDL_Point topLeft;
   SDL_Rect bounds;
   SDL_Texture *houseTex;
   SDL_Point *points;
-  int numPts;
+  int numWallPts;
+  int totalPts;
 };
 static std::list<House> s_houses;
 
 void BuildHouse(SDL_Renderer *pRender,
-                std::list<std::list<SDL_Point>>::reference &oh) {
+                std::list<std::list<HousePoint>>::reference &oh) {
   House h;
-  h.numPts = 0;
-  h.points = new SDL_Point[oh.size() + 1];
+  h.totalPts = oh.size() + 1;
+  h.numWallPts = 0;
+  int doorCurr = h.totalPts-1;
+  h.points = new SDL_Point[h.totalPts];
   h.bounds = SDL_Rect{100000, 1000000, 0, 0};
   for (auto p : oh) {
-    SDL_Point pt = SDL_Point{p.x * PIX_MULTI + 3, p.y * PIX_MULTI + 3};
+	  SDL_Point pt = SDL_Point{ p.x * PIX_MULTI + PIX_HALF, p.y * PIX_MULTI + PIX_HALF };
 
     if (pt.x < h.bounds.x) h.bounds.x = pt.x;
     if (pt.y < h.bounds.y) h.bounds.y = pt.y;
     if (pt.x > h.bounds.w) h.bounds.w = pt.x;
     if (pt.y > h.bounds.h) h.bounds.h = pt.y;
 
-    h.points[h.numPts++] = pt;
+	if (p.isDoor)
+		h.points[doorCurr--] = pt;
+	else
+		h.points[h.numWallPts++] = pt;
   }
-  h.points[h.numPts++] = h.points[0];
+  h.points[h.numWallPts++] = h.points[0];
 
   h.topLeft.x = h.bounds.x - 8;
   h.topLeft.y = h.bounds.y - 8;
   h.bounds = SDL_Rect{0, 0, h.bounds.w - h.topLeft.x + 16,
                       h.bounds.h - h.topLeft.y + 16};
 
-  for (int i = 0; i < h.numPts; ++i) {
+  for (int i = 0; i < h.totalPts; ++i) {
     h.points[i].x = h.points[i].x - h.topLeft.x;
     h.points[i].y = h.points[i].y - h.topLeft.y;
   }
@@ -52,17 +60,21 @@ void BuildHouse(SDL_Renderer *pRender,
   SDL_SetRenderDrawColor(pRender, 0, 0, 0, 0);
   SDL_RenderClear(pRender);
 
-  SDL_SetRenderDrawColor(pRender, 0, 255, 0, 255);
-  for (int i = 0; i < h.numPts; ++i) {
-    SDL_RenderFillRect(pRender,
-                       &SDL_Rect{h.points[i].x - 2, h.points[i].y - 2, 4, 4});
+  int16_t* vx = new int16_t[h.numWallPts];
+  int16_t* vy = new int16_t[h.numWallPts];
+  for (int i = 0; i < h.numWallPts; ++i) {
+	  vx[i] = h.points[i].x;
+	  vy[i] = h.points[i].y;
+  }
+  filledPolygonRGBA(pRender, vx, vy, h.numWallPts, 60,60,60, 255);
+  polygonRGBA(pRender, vx, vy, h.numWallPts, 0, 0, 0, 128);
+  delete vx, vy;
+
+  for (int i = h.numWallPts+1; i < h.totalPts; i+=2) {
+	  thickLineRGBA(pRender, h.points[i - 1].x, h.points[i - 1].y, h.points[i].x, h.points[i].y, 3, 255, 0, 255, 255);
   }
 
-  SDL_SetRenderDrawColor(pRender, 0, 0, 0, 255);
-  SDL_RenderDrawLines(pRender, h.points, h.numPts);
-
   SDL_RenderPresent(pRender);
-
   SDL_SetRenderTarget(pRender, NULL);
 
   //
@@ -131,7 +143,7 @@ void GameState::Render() {
 
   SDL_RenderCopy(app->renderer, pTexGround, &pGround->clip_rect, &tarRect);
   SDL_RenderCopy(app->renderer, pTexRoad, &pGround->clip_rect, &tarRect);
-  // SDL_RenderCopy(app->renderer, pTexHouse, &pGround->clip_rect, &tarRect);
+  //SDL_RenderCopy(app->renderer, pTexHouse, &pGround->clip_rect, &tarRect);
 
   for (auto h : s_houses) {
     SDL_Rect r = h.bounds;
@@ -140,7 +152,7 @@ void GameState::Render() {
     SDL_RenderCopy(app->renderer, h.houseTex, &h.bounds, &r);
   }
 
-  DrawRect(playerPos, 14, 14, SDL_Color{200, 0, 0, 255});
+  DrawRect(playerPos, 6, 6, SDL_Color{200, 0, 0, 255});
 
   SDL_RenderPresent(app->renderer);
 }
@@ -154,10 +166,10 @@ void GameState::Update() {
 
   if (camScroll.x < 0) camScroll.x = 0;
   if (camScroll.y < 0) camScroll.y = 0;
-  if (camScroll.x > (MapSize.w * PIX_MULTI) - app->width)
-    camScroll.x = (MapSize.w * PIX_MULTI) - app->width;
-  if (camScroll.y > (MapSize.h * PIX_MULTI) - app->height)
-    camScroll.y = (MapSize.h * PIX_MULTI) - app->height;
+  if (camScroll.x > MapSize.w*PIX_MULTI - PIX_WIDTH)
+	  camScroll.x = MapSize.w*PIX_MULTI - PIX_WIDTH;
+  if (camScroll.y > MapSize.h*PIX_MULTI - PIX_HEIGHT)
+	  camScroll.y = MapSize.h*PIX_MULTI - PIX_HEIGHT;
 
   // Clear Buttons
   for (int b = NOOF_BUTTONS - 1; b >= 0; --b) {

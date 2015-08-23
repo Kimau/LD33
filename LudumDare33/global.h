@@ -3,6 +3,8 @@
 #define SCREEN_TITLE "LudumDare #33 - @EvilKimau"
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 600
+#define PIX_WIDTH 320
+#define PIX_HEIGHT 240
 #define FRAME_RATE 60
 
 struct SDLAPP {
@@ -15,6 +17,4 @@ struct SDLAPP {
   Uint32 frameStartTime;
   Uint32 frameLock;
 
-  int width;
-  int height;
 };

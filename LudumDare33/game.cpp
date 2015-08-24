@@ -4,36 +4,34 @@
 #include "sprite.h"
 #include "game.h"
 
-
 enum TileId {
-	TILE_ROAD,
-	TILE_DIRT,
-	TILE_BEACH,
-	TILE_SEA,
-	TILE_GRASS,
-	TILE_FOREST,
-	TILE_HOUSE,
-	TILE_DOOR,
-	NOOF_TILE
+  TILE_ROAD,
+  TILE_DIRT,
+  TILE_BEACH,
+  TILE_SEA,
+  TILE_GRASS,
+  TILE_FOREST,
+  TILE_HOUSE,
+  TILE_DOOR,
+  NOOF_TILE
 };
 
 struct FloorTile {
-	TileId id;
-	int light;
+  TileId id;
+  int light;
 };
 
 bool isBlocking(const FloorTile& tilesDst) {
-	return (tilesDst.id == TILE_HOUSE) || (tilesDst.id == TILE_SEA);
+  return (tilesDst.id == TILE_HOUSE) || (tilesDst.id == TILE_SEA);
 }
-
 
 static FloorTile* s_Tiles;
 
 struct House {
   SDL_Point topLeft;
   SDL_Rect bounds;
-  SDL_Texture *houseTex;
-  SDL_Point *points;
+  SDL_Texture* houseTex;
+  SDL_Point* points;
   int numWallPts;
   int totalPts;
   bool isRender;
@@ -41,26 +39,27 @@ struct House {
 
 static std::list<House> s_houses;
 
-void BuildHouse(SDL_Renderer *pRender,
-                std::list<std::list<HousePoint>>::reference &oh) {
+void BuildHouse(SDL_Renderer* pRender,
+                std::list<std::list<HousePoint>>::reference& oh) {
   House h;
   h.totalPts = oh.size() + 1;
   h.numWallPts = 0;
-  int doorCurr = h.totalPts-1;
+  int doorCurr = h.totalPts - 1;
   h.points = new SDL_Point[h.totalPts];
   h.bounds = SDL_Rect{100000, 1000000, 0, 0};
   for (auto p : oh) {
-	  SDL_Point pt = SDL_Point{ p.x * PIX_TILE + PIX_HALF, p.y * PIX_TILE + PIX_HALF };
+    SDL_Point pt =
+        SDL_Point{p.x * PIX_TILE + PIX_HALF, p.y * PIX_TILE + PIX_HALF};
 
     if (pt.x < h.bounds.x) h.bounds.x = pt.x;
     if (pt.y < h.bounds.y) h.bounds.y = pt.y;
     if (pt.x > h.bounds.w) h.bounds.w = pt.x;
     if (pt.y > h.bounds.h) h.bounds.h = pt.y;
 
-	if (p.isDoor)
-		h.points[doorCurr--] = pt;
-	else
-		h.points[h.numWallPts++] = pt;
+    if (p.isDoor)
+      h.points[doorCurr--] = pt;
+    else
+      h.points[h.numWallPts++] = pt;
   }
   h.points[h.numWallPts++] = h.points[0];
 
@@ -87,15 +86,16 @@ void BuildHouse(SDL_Renderer *pRender,
   int16_t* vx = new int16_t[h.numWallPts];
   int16_t* vy = new int16_t[h.numWallPts];
   for (int i = 0; i < h.numWallPts; ++i) {
-	  vx[i] = h.points[i].x;
-	  vy[i] = h.points[i].y;
+    vx[i] = h.points[i].x;
+    vy[i] = h.points[i].y;
   }
-  filledPolygonRGBA(pRender, vx, vy, h.numWallPts, 60,60,60, 255);
+  filledPolygonRGBA(pRender, vx, vy, h.numWallPts, 60, 60, 60, 255);
   polygonRGBA(pRender, vx, vy, h.numWallPts, 0, 0, 0, 128);
   delete vx, vy;
 
-  for (int i = h.numWallPts+1; i < h.totalPts; i+=2) {
-	  thickLineRGBA(pRender, h.points[i - 1].x, h.points[i - 1].y, h.points[i].x, h.points[i].y, 3, 255, 0, 255, 255);
+  for (int i = h.numWallPts + 1; i < h.totalPts; i += 2) {
+    thickLineRGBA(pRender, h.points[i - 1].x, h.points[i - 1].y, h.points[i].x,
+                  h.points[i].y, 3, 255, 0, 255, 255);
   }
 
   SDL_RenderPresent(pRender);
@@ -109,18 +109,18 @@ void BuildHouse(SDL_Renderer *pRender,
 //////////////////////////////////////////////////////////////////////////
 // Useful Small Functions
 
-void GameState::DrawGridRect(SDL_Point &p, int w, int h, const SDL_Color &col) {
+void GameState::DrawGridRect(SDL_Point& p, int w, int h, const SDL_Color& col) {
   SDL_SetRenderDrawColor(app->renderer, col.r, col.g, col.b, col.a);
-  SDL_RenderFillRect(app->renderer, &SDL_Rect{p.x - camScroll.x,
-                                              p.y - camScroll.y, w, h});
+  SDL_RenderFillRect(app->renderer,
+                     &SDL_Rect{p.x - camScroll.x, p.y - camScroll.y, w, h});
 
   SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 128);
-  SDL_RenderDrawRect(app->renderer, &SDL_Rect{p.x - camScroll.x,
-                                              p.y - camScroll.y, w, h});
+  SDL_RenderDrawRect(app->renderer,
+                     &SDL_Rect{p.x - camScroll.x, p.y - camScroll.y, w, h});
 }
 
 //////////////////////////////////////////////////////////////////////////
-void GameState::StartGame(SDLAPP *_app) {
+void GameState::StartGame(SDLAPP* _app) {
   app = _app;
 
   pGround = LoadBMP("ground.bmp");
@@ -129,13 +129,13 @@ void GameState::StartGame(SDLAPP *_app) {
 
   // Player
   MapSize = pGround->clip_rect;
-  camScroll = SDL_Point{ 500, 400 };
-  playerPos = SDL_Point{ 615, 495 };
+  camScroll = SDL_Point{500, 400};
+  playerPos = SDL_Point{615, 495};
 
   // Setup Houses
   s_houses.clear();
   SDL_LockSurface(pHouse);
-  auto housesList = ExtractHouses((uint16_t *)pHouse->pixels,
+  auto housesList = ExtractHouses((uint16_t*)pHouse->pixels,
                                   pHouse->clip_rect.w, pHouse->clip_rect.h);
   SDL_UnlockSurface(pHouse);
 
@@ -144,46 +144,49 @@ void GameState::StartGame(SDLAPP *_app) {
     BuildHouse(app->renderer, oh);
     housesList.pop_front();
   }
-  
+
+  // Setup Light
+  pTexLight = SDL_CreateTexture(app->renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, MapSize.w, MapSize.h);
+  SDL_SetTextureBlendMode(pTexLight, SDL_BLENDMODE_BLEND);
+
   // Setup Ground
   SDL_UnlockSurface(pGround);
-  s_Tiles = new FloorTile[MapSize.w*MapSize.h];
+  s_Tiles = new FloorTile[MapSize.w * MapSize.h];
   uint16_t* pix = (uint16_t*)pGround->pixels;
   int c = 0;
-  for (int y = 0; y < pGround->h; ++y)
-  {
-	  for (int x = 0; x < pGround->w; ++x) {
-		  uint16_t col = pix[c];
-		  switch (col) {
-                    case COL_ROAD:
-                      s_Tiles[c++] = FloorTile{TILE_ROAD, 8};
-                      break;
-                    case COL_DIRT:
-                      s_Tiles[c++] = FloorTile{TILE_DIRT, 8};
-                      break;
-                    case COL_BEACH:
-                      s_Tiles[c++] = FloorTile{TILE_BEACH, 8};
-                      break;
-                    case COL_SEA:
-                      s_Tiles[c++] = FloorTile{TILE_SEA, 8};
-                      break;
-                    case COL_GRASS:
-                      s_Tiles[c++] = FloorTile{TILE_GRASS, 8};
-                      break;
-                    case COL_FOREST:
-                      s_Tiles[c++] = FloorTile{TILE_FOREST, 8};
-                      break;
-					case COL_ROOF:
-                    case COL_HOUSE:
-                      s_Tiles[c++] = FloorTile{TILE_HOUSE, 8};
-                      break;
-                    case COL_DOOR:
-                      s_Tiles[c++] = FloorTile{TILE_DOOR, 8};
-                      break;
-                  default:
-					  SDL_Log("COL [%d,%d] %x", x,y, col);
-		  }
-	  }
+  for (int y = 0; y < pGround->h; ++y) {
+    for (int x = 0; x < pGround->w; ++x) {
+      uint16_t col = pix[c];
+      switch (col) {
+        case COL_ROAD:
+          s_Tiles[c++] = FloorTile{TILE_ROAD, 8};
+          break;
+        case COL_DIRT:
+          s_Tiles[c++] = FloorTile{TILE_DIRT, 8};
+          break;
+        case COL_BEACH:
+          s_Tiles[c++] = FloorTile{TILE_BEACH, 8};
+          break;
+        case COL_SEA:
+          s_Tiles[c++] = FloorTile{TILE_SEA, 8};
+          break;
+        case COL_GRASS:
+          s_Tiles[c++] = FloorTile{TILE_GRASS, 8};
+          break;
+        case COL_FOREST:
+          s_Tiles[c++] = FloorTile{TILE_FOREST, 8};
+          break;
+        case COL_ROOF:
+        case COL_HOUSE:
+          s_Tiles[c++] = FloorTile{TILE_HOUSE, 8};
+          break;
+        case COL_DOOR:
+          s_Tiles[c++] = FloorTile{TILE_DOOR, 8};
+          break;
+        default:
+          SDL_Log("COL [%d,%d] %x", x, y, col);
+      }
+    }
   }
   SDL_LockSurface(pGround);
 
@@ -191,61 +194,162 @@ void GameState::StartGame(SDLAPP *_app) {
 }
 
 void GameState::Render() {
-	SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 255);
-	SDL_RenderClear(app->renderer);
+  SDL_SetRenderDrawColor(app->renderer, 0, 0, 0, 255);
+  SDL_RenderClear(app->renderer);
 
-	SDL_Rect tarRect = SDL_Rect{ -camScroll.x, -camScroll.y, MapSize.w * PIX_TILE,
-		MapSize.h * PIX_TILE };
+  SDL_Rect tarRect = SDL_Rect{-camScroll.x, -camScroll.y, MapSize.w * PIX_TILE,
+                              MapSize.h * PIX_TILE};
 
-	SDL_RenderCopy(app->renderer, pTexLevel, &pGround->clip_rect, &tarRect);
-	/*
-	for (auto h : s_houses) {
-		SDL_Rect r = h.bounds;
-		r.x = h.topLeft.x - camScroll.x;
-		r.y = h.topLeft.y - camScroll.y;
-		SDL_RenderCopy(app->renderer, h.houseTex, &h.bounds, &r);
-	}*/
+  SDL_RenderCopy(app->renderer, pTexLevel, &pGround->clip_rect, &tarRect);
+  SDL_RenderCopy(app->renderer, pTexLight, &pGround->clip_rect, &tarRect);
+  /*
+  for (auto h : s_houses) {
+          SDL_Rect r = h.bounds;
+          r.x = h.topLeft.x - camScroll.x;
+          r.y = h.topLeft.y - camScroll.y;
+          SDL_RenderCopy(app->renderer, h.houseTex, &h.bounds, &r);
+  }*/
 
-	DrawGridRect(playerPos, PIX_TILE, PIX_TILE, SDL_Color{ 200, 0, 0, 255 });
+  DrawGridRect(playerPos, PIX_TILE, PIX_TILE, SDL_Color{200, 0, 0, 255});
 
-	SDL_RenderPresent(app->renderer);
+  SDL_RenderPresent(app->renderer);
 }
-
-
 
 void GameState::Update() {
   // Update Player
-	SDL_Point playVel;
+  SDL_Point playVel;
   {
-	  SDL_Point oldPos = playerPos;
-	  SDL_Point newPos{
-		  playerPos.x + ((buttonMap[B_LEFT] > 0) ? -1 : 0) +
-		  ((buttonMap[B_RIGHT] > 0) ? +1 : 0),
-		  playerPos.y + ((buttonMap[B_UP] > 0) ? -1 : 0) +
-		  ((buttonMap[B_DOWN] > 0) ? +1 : 0) };
+    SDL_Point oldPos = playerPos;
+    SDL_Point newPos{playerPos.x + ((buttonMap[B_LEFT] > 0) ? -1 : 0) +
+                         ((buttonMap[B_RIGHT] > 0) ? +1 : 0),
+                     playerPos.y + ((buttonMap[B_UP] > 0) ? -1 : 0) +
+                         ((buttonMap[B_DOWN] > 0) ? +1 : 0)};
 
-	  UpdateMovePlayer(newPos);
-	  playVel = { newPos.x - oldPos.x, newPos.y -oldPos.y };
+    UpdateMovePlayer(newPos);
+    playVel = {playerPos.x - oldPos.x, playerPos.y - oldPos.y};
   }
 
   // Update Camera Scroll
-  camScroll.x += ((buttonMap[B_CAMLEFT] > 0) ? -PIX_TILE : 0) + ((buttonMap[B_CAMRIGHT] > 0) ? +PIX_TILE : 0);
-  camScroll.y += ((buttonMap[B_CAMUP] > 0) ? -PIX_TILE : 0) + ((buttonMap[B_CAMDOWN] > 0) ? +PIX_TILE : 0);
+  UpdateCamera(playVel);
 
-  SDL_Point camRelPos = { playerPos.x - camScroll.x - PIX_WIDTH / 2, playerPos.y - camScroll.y - PIX_HEIGHT/2};
-  static SDL_Point prevVel{ 0, 0 };
+  // Update Lighting
+  uint32_t* pix;
+  int pitch;
+  SDL_LockTexture(pTexLight, NULL, (void**)(&pix), &pitch);
+  
+  int maxL = 31;
+  int c = 0;
+  for (int y = 0; y < MapSize.h; ++y) {
+    for (int x = 0; x < MapSize.w; ++x) {
+	  pix[c] = (s_Tiles[c].id == TILE_HOUSE) << maxL;
+	  c++;
+    }
+  }
+
+  // STUPID UPDATE
+  uint32_t* pFt = nullptr;
+  while(maxL > 1) {
+	  int maskL = 1 << maxL;
+    int c = 0;
+
+	// PARTIAL X ROW
+	// -head
+	pFt = &pix[c];
+	*pFt |= maskL & (pix[c + 1] | pix[c + MapSize.w] ) >> 1;
+	c += 1;
+	// -body
+	for (int x = MapSize.w - 2; x > 0; --x) {
+		pFt = &pix[c];
+		*pFt |= maskL & (pix[c - 1] | pix[c + 1] |
+			pix[c + MapSize.w]) >> 1;
+		c += 1;
+	}
+	// -tail
+	pFt = &pix[c];
+	*pFt |= maskL & (pix[c - 1] | pix[c + MapSize.w]) >> 1;
+	c += 1;
+	// END PARTIAL X ROW
+
+    for (int y = MapSize.h - 2; y > 0; --y) {
+      // FULL X ROW
+      // -head
+		pFt = &pix[c];
+	  *pFt |= maskL & (pix[c + 1] | pix[c - MapSize.w] |
+		  pix[c + MapSize.w]) >> 1;
+      c += 1;
+      // -body
+      for (int x = MapSize.w - 2; x > 0; --x) {
+		  pFt = &pix[c];
+		  *pFt |= maskL & (pix[c - 1] | pix[c + 1] |
+			  pix[c - MapSize.w] | pix[c + MapSize.w]) >> 1;
+        c += 1;
+      }
+      // -tail
+	  pFt = &pix[c];
+	  *pFt |= maskL & (pix[c - 1] | pix[c - MapSize.w] |
+		  pix[c + MapSize.w]) >> 1;
+      c += 1;
+      // END FULL X ROW
+    }
+
+	// PARTIAL X ROW
+	// -head
+	pFt = &pix[c];
+	*pFt |= maskL & (pix[c + 1] | pix[c - MapSize.w]) >> 1;
+	c += 1;
+	// -body
+	for (int x = MapSize.w - 2; x > 0; --x) {
+		pFt = &pix[c];
+		*pFt |= maskL & (pix[c - 1] | pix[c + 1] |
+			pix[c - MapSize.w]) >> 1;
+		c += 1;
+	}
+	// -tail
+	pFt = &pix[c];
+	*pFt |= maskL & (pix[c - 1] | pix[c - MapSize.w]) >> 1;
+	c += 1;
+	// END PARTIAL X ROW
+
+	// Reduce Light
+	maxL -= 1;
+  }
+
+  c = 0;
+  for (int y = 0; y < MapSize.h; ++y) {
+	  for (int x = 0; x < MapSize.w; ++x) {
+		  //pix[c] = 0xFF & ~pix[c];
+		  c++;
+	  }
+  }
+
+  SDL_UnlockTexture(pTexLight);
+
+  // Clear Buttons
+  for (int b = NOOF_BUTTONS - 1; b >= 0; --b) {
+    buttonMap[b] &= 1;
+  }
+}
+
+void GameState::UpdateCamera(SDL_Point& playVel) {
+  camScroll.x += ((buttonMap[B_CAMLEFT] > 0) ? -PIX_TILE : 0) +
+                 ((buttonMap[B_CAMRIGHT] > 0) ? +PIX_TILE : 0);
+  camScroll.y += ((buttonMap[B_CAMUP] > 0) ? -PIX_TILE : 0) +
+                 ((buttonMap[B_CAMDOWN] > 0) ? +PIX_TILE : 0);
+
+  SDL_Point camRelPos = {playerPos.x - camScroll.x - PIX_WIDTH / 2,
+                         playerPos.y - camScroll.y - PIX_HEIGHT / 2};
+  static SDL_Point prevVel{0, 0};
 
   if (playVel.x == 0)
     playVel.x = (camRelPos.x > 2) - (camRelPos.x < 2);
   else {
-	  if (abs(camRelPos.x) > PIX_WIDTH / 3) {
-		  playVel.x = 0;
-		  if (camRelPos.x > 0)
-			  camScroll.x = playerPos.x - PIX_WIDTH/3 - PIX_WIDTH/2-2;
-		  else
-			  camScroll.x = playerPos.x + PIX_WIDTH/3 - PIX_WIDTH/2+2;
-	  }
-    else if (playVel.x > 0)
+    if (abs(camRelPos.x) > PIX_WIDTH / 3) {
+      playVel.x = 0;
+      if (camRelPos.x > 0)
+        camScroll.x = playerPos.x - PIX_WIDTH / 3 - PIX_WIDTH / 2 - 2;
+      else
+        camScroll.x = playerPos.x + PIX_WIDTH / 3 - PIX_WIDTH / 2 + 2;
+    } else if (playVel.x > 0)
       playVel.x += 1 + (prevVel.x > 0);
     else if (playVel.x < 0)
       playVel.x -= 1 + (prevVel.x < 0);
@@ -254,14 +358,13 @@ void GameState::Update() {
   if (playVel.y == 0)
     playVel.y = (camRelPos.y > 2) - (camRelPos.y < 2);
   else {
-	  if (abs(camRelPos.y) > PIX_HEIGHT / 3) {
-		  playVel.y = 0;
-		  if (camRelPos.y > 0)
-			  camScroll.y = playerPos.y - PIX_HEIGHT / 3 - PIX_HEIGHT / 2 - 2;
-		  else
-			  camScroll.y = playerPos.y + PIX_HEIGHT / 3 - PIX_HEIGHT / 2 + 2;
-	  }
-    else if (playVel.y > 0)
+    if (abs(camRelPos.y) > PIX_HEIGHT / 3) {
+      playVel.y = 0;
+      if (camRelPos.y > 0)
+        camScroll.y = playerPos.y - PIX_HEIGHT / 3 - PIX_HEIGHT / 2 - 2;
+      else
+        camScroll.y = playerPos.y + PIX_HEIGHT / 3 - PIX_HEIGHT / 2 + 2;
+    } else if (playVel.y > 0)
       playVel.y += 1 + (prevVel.y > 0);
     else if (playVel.y < 0)
       playVel.y -= 1 + (prevVel.y < 0);
@@ -273,18 +376,12 @@ void GameState::Update() {
   camScroll.y += playVel.y;
 
   BoundToMap(camScroll, PIX_WIDTH, PIX_HEIGHT);
-
-  // Clear Buttons
-  for (int b = NOOF_BUTTONS - 1; b >= 0; --b) {
-    buttonMap[b] &= 1;
-  }
 }
 
 bool GameState::UpdateMovePlayer(SDL_Point newPos) {
   BoundToMap(newPos, PIX_TILE, PIX_TILE);
 
-  if((newPos.x == playerPos.x) && (newPos.y == playerPos.y))
-	  return false;
+  if ((newPos.x == playerPos.x) && (newPos.y == playerPos.y)) return false;
 
   // Tiles under player
   int tiles[8] = {0};
@@ -297,11 +394,13 @@ bool GameState::UpdateMovePlayer(SDL_Point newPos) {
   }
 
   if (isBlocked) {
-    if((newPos.x != playerPos.x) && UpdateMovePlayer(SDL_Point{playerPos.x, newPos.y}))
-        return true;
-     
-	if ((newPos.y != playerPos.y) && UpdateMovePlayer(SDL_Point{ newPos.x, playerPos.y }))
-        return true;
+    if ((newPos.x != playerPos.x) &&
+        UpdateMovePlayer(SDL_Point{playerPos.x, newPos.y}))
+      return true;
+
+    if ((newPos.y != playerPos.y) &&
+        UpdateMovePlayer(SDL_Point{newPos.x, playerPos.y}))
+      return true;
 
     return false;
   }
@@ -310,32 +409,30 @@ bool GameState::UpdateMovePlayer(SDL_Point newPos) {
   return true;
 }
 
-void GameState::BoundToMap(SDL_Point& pt, int w, int h) const
-{
-	if (pt.x < 0) pt.x = 0;
-	if (pt.y < 0) pt.y = 0;
-	if (pt.x > MapSize.w*PIX_TILE - w)
-		pt.x = MapSize.w*PIX_TILE - w;
-	if (pt.y > MapSize.h*PIX_TILE - h)
-		pt.y = MapSize.h*PIX_TILE - h;
+void GameState::BoundToMap(SDL_Point& pt, int w, int h) const {
+  if (pt.x < 0) pt.x = 0;
+  if (pt.y < 0) pt.y = 0;
+  if (pt.x > MapSize.w * PIX_TILE - w) pt.x = MapSize.w * PIX_TILE - w;
+  if (pt.y > MapSize.h * PIX_TILE - h) pt.y = MapSize.h * PIX_TILE - h;
 }
 
-int GameState::GetTiles(const SDL_Point &pt, int *fourInts) const {
-	SDL_Point ptA = SDL_Point{ pt.x / PIX_TILE, pt.y / PIX_TILE };
-	SDL_Point ptB = SDL_Point{ ptA.x + (((pt.x%PIX_TILE)>0) ? 1 : 0), ptA.y + (((pt.y%PIX_TILE)>0) ? 1 : 0) };
-	BoundToMap(ptA, PIX_TILE, PIX_TILE);
-	BoundToMap(ptB, PIX_TILE, PIX_TILE);
+int GameState::GetTiles(const SDL_Point& pt, int* fourInts) const {
+  SDL_Point ptA = SDL_Point{pt.x / PIX_TILE, pt.y / PIX_TILE};
+  SDL_Point ptB = SDL_Point{ptA.x + (((pt.x % PIX_TILE) > 0) ? 1 : 0),
+                            ptA.y + (((pt.y % PIX_TILE) > 0) ? 1 : 0)};
+  BoundToMap(ptA, PIX_TILE, PIX_TILE);
+  BoundToMap(ptB, PIX_TILE, PIX_TILE);
 
-	int total = 0;
-	fourInts[total++] = ptA.x + ptA.y * MapSize.w;
-	if (ptA.x != ptB.x) fourInts[total++] = ptB.x + ptA.y * MapSize.w;
-	if (ptA.y != ptB.y) fourInts[total++] = ptA.x + ptB.y * MapSize.w;
-	if (total == 3) fourInts[total++] = ptB.x + ptB.y * MapSize.w;
+  int total = 0;
+  fourInts[total++] = ptA.x + ptA.y * MapSize.w;
+  if (ptA.x != ptB.x) fourInts[total++] = ptB.x + ptA.y * MapSize.w;
+  if (ptA.y != ptB.y) fourInts[total++] = ptA.x + ptB.y * MapSize.w;
+  if (total == 3) fourInts[total++] = ptB.x + ptB.y * MapSize.w;
 
-	return total;
+  return total;
 }
 
-void GameState::GameEvent(SDL_Event *evt) {
+void GameState::GameEvent(SDL_Event* evt) {
   switch (evt->type) {
     case SDL_KEYDOWN:
       switch (evt->key.keysym.scancode) {
@@ -350,20 +447,20 @@ void GameState::GameEvent(SDL_Event *evt) {
           break;
         case SDL_SCANCODE_RIGHT:
           buttonMap[B_RIGHT] = 3;
-		  break;
+          break;
 
-		case SDL_SCANCODE_I:
-			buttonMap[B_CAMUP] = 3;
-			break;
-		case SDL_SCANCODE_K:
-			buttonMap[B_CAMDOWN] = 3;
-			break;
-		case SDL_SCANCODE_J:
-			buttonMap[B_CAMLEFT] = 3;
-			break;
-		case SDL_SCANCODE_L:
-			buttonMap[B_CAMRIGHT] = 3;
-			break;
+        case SDL_SCANCODE_I:
+          buttonMap[B_CAMUP] = 3;
+          break;
+        case SDL_SCANCODE_K:
+          buttonMap[B_CAMDOWN] = 3;
+          break;
+        case SDL_SCANCODE_J:
+          buttonMap[B_CAMLEFT] = 3;
+          break;
+        case SDL_SCANCODE_L:
+          buttonMap[B_CAMRIGHT] = 3;
+          break;
       }
       break;
 
@@ -382,42 +479,40 @@ void GameState::GameEvent(SDL_Event *evt) {
           buttonMap[B_RIGHT] = 0;
           break;
 
-		case SDL_SCANCODE_I:
-			buttonMap[B_CAMUP] = 0;
-			break;
-		case SDL_SCANCODE_K:
-			buttonMap[B_CAMDOWN] = 0;
-			break;
-		case SDL_SCANCODE_J:
-			buttonMap[B_CAMLEFT] = 0;
-			break;
-		case SDL_SCANCODE_L:
-			buttonMap[B_CAMRIGHT] = 0;
-			break;
+        case SDL_SCANCODE_I:
+          buttonMap[B_CAMUP] = 0;
+          break;
+        case SDL_SCANCODE_K:
+          buttonMap[B_CAMDOWN] = 0;
+          break;
+        case SDL_SCANCODE_J:
+          buttonMap[B_CAMLEFT] = 0;
+          break;
+        case SDL_SCANCODE_L:
+          buttonMap[B_CAMRIGHT] = 0;
+          break;
       }
       break;
 
     case SDL_MOUSEMOTION:
       break;
     case SDL_MOUSEBUTTONDOWN:
-    case SDL_MOUSEBUTTONUP:
-	{
-		
-		auto pt = SDL_Point{ 
-			(evt->button.x / PIX_MULTI) + camScroll.x,
-			(evt->button.y / PIX_MULTI) + camScroll.y };
+    case SDL_MOUSEBUTTONUP: {
+      auto pt = SDL_Point{(evt->button.x / PIX_MULTI) + camScroll.x,
+                          (evt->button.y / PIX_MULTI) + camScroll.y};
 
-		pt.x = pt.x - pt.x % PIX_TILE;
-		pt.y = pt.y - pt.y % PIX_TILE;
-		playerPos = pt;
+      pt.x = pt.x - pt.x % PIX_TILE;
+      pt.y = pt.y - pt.y % PIX_TILE;
+      playerPos = pt;
 
-		SDL_Log("Mouse %d,%d -> %d,%d", evt->button.x, evt->button.y, playerPos.x, playerPos.y);
-		for (auto h : s_houses) {
+      SDL_Log("Mouse %d,%d -> %d,%d", evt->button.x, evt->button.y, playerPos.x,
+              playerPos.y);
+      for (auto h : s_houses) {
+      }
+    }
 
-		}
-	}
-	
-    case SDL_MOUSEWHEEL:  break;
+    case SDL_MOUSEWHEEL:
+      break;
   }
 }
 

@@ -15,7 +15,9 @@ class GameState {
   SDL_Surface *pHouse;
   SDL_Surface *pGrad;
 
+
   SDL_Texture *pTexLevel;
+  SDL_Texture *pTexLight;
 
   // Camera
   SDL_Rect MapSize;
@@ -34,5 +36,8 @@ class GameState {
   void StartGame(SDLAPP *_app);
   void Render();
   void Update();
+
+  void UpdateCamera(SDL_Point &playVel);
+
   void GameEvent(SDL_Event *evt);
 };

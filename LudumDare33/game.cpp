@@ -215,7 +215,9 @@ void GameState::Render() {
 
 void GameState::Update() {
   // Update Player
+	SDL_Point playVel;
   {
+	  SDL_Point oldPos = playerPos;
 	  SDL_Point newPos{
 		  playerPos.x + ((buttonMap[B_LEFT] > 0) ? -1 : 0) +
 		  ((buttonMap[B_RIGHT] > 0) ? +1 : 0),
@@ -223,49 +225,52 @@ void GameState::Update() {
 		  ((buttonMap[B_DOWN] > 0) ? +1 : 0) };
 
 	  UpdateMovePlayer(newPos);
-
+	  playVel = { newPos.x - oldPos.x, newPos.y -oldPos.y };
   }
 
   // Update Camera Scroll
-  static Vec2 camVel{ 0, 0 };
-  int dx = ((buttonMap[B_CAMLEFT] > 0) ? -PIX_TILE : 0) + ((buttonMap[B_CAMRIGHT] > 0) ? +PIX_TILE : 0);
-  int dy = ((buttonMap[B_CAMUP] > 0) ? -PIX_TILE : 0) + ((buttonMap[B_CAMDOWN] > 0) ? +PIX_TILE : 0);
-  if (dx != 0)
-	  camVel.x = dx*1.0f;
-  if (dy != 0)
-	  camVel.y = dy*1.0f;
+  camScroll.x += ((buttonMap[B_CAMLEFT] > 0) ? -PIX_TILE : 0) + ((buttonMap[B_CAMRIGHT] > 0) ? +PIX_TILE : 0);
+  camScroll.y += ((buttonMap[B_CAMUP] > 0) ? -PIX_TILE : 0) + ((buttonMap[B_CAMDOWN] > 0) ? +PIX_TILE : 0);
 
-  SDL_Point camRelPos = { playerPos.x - camScroll.x, playerPos.y - camScroll.y };
+  SDL_Point camRelPos = { playerPos.x - camScroll.x - PIX_WIDTH / 2, playerPos.y - camScroll.y - PIX_HEIGHT/2};
+  static SDL_Point prevVel{ 0, 0 };
 
-  if (camRelPos.x < PIX_WIDTH/4) {
-	  if (camRelPos.x < PIX_WIDTH/5)
-		  camVel.x = -1.0f;
-	  else if (camVel.x > 0)
-		  camVel.x = 0;
-  }
-  if (camRelPos.x >(PIX_WIDTH - PIX_WIDTH/4)) {
-	  if (camRelPos.x > (PIX_WIDTH - PIX_WIDTH / 5))
-		  camVel.x = +1.0f;
-	  else if (camVel.x < 0)
-		  camVel.x = 0;
-  }
-  if (camRelPos.y < PIX_HEIGHT/4) {
-	  if (camRelPos.y < PIX_HEIGHT/5)
-		  camVel.y = -1.0f;
-	  else if (camVel.y > 0)
-		  camVel.y = 0;
-  }
-  if (camRelPos.y > (PIX_HEIGHT - PIX_HEIGHT/4)) {
-	  if (camRelPos.y >(PIX_HEIGHT - PIX_HEIGHT/5))
-		  camVel.y = +1.0f;
-	  else if (camVel.y < 0)
-		  camVel.y = 0;
+  if (playVel.x == 0)
+    playVel.x = (camRelPos.x > 2) - (camRelPos.x < 2);
+  else {
+	  if (abs(camRelPos.x) > PIX_WIDTH / 3) {
+		  playVel.x = 0;
+		  if (camRelPos.x > 0)
+			  camScroll.x = playerPos.x - PIX_WIDTH/3 - PIX_WIDTH/2-2;
+		  else
+			  camScroll.x = playerPos.x + PIX_WIDTH/3 - PIX_WIDTH/2+2;
+	  }
+    else if (playVel.x > 0)
+      playVel.x += 1 + (prevVel.x > 0);
+    else if (playVel.x < 0)
+      playVel.x -= 1 + (prevVel.x < 0);
   }
 
-  if (camVel.x > 0) camScroll.x += PIX_TILE*4/3;
-  if (camVel.x < 0) camScroll.x -= PIX_TILE * 4 / 3;
-  if (camVel.y > 0) camScroll.y += PIX_TILE * 4 / 3;
-  if (camVel.y < 0) camScroll.y -= PIX_TILE * 4 / 3;
+  if (playVel.y == 0)
+    playVel.y = (camRelPos.y > 2) - (camRelPos.y < 2);
+  else {
+	  if (abs(camRelPos.y) > PIX_HEIGHT / 3) {
+		  playVel.y = 0;
+		  if (camRelPos.y > 0)
+			  camScroll.y = playerPos.y - PIX_HEIGHT / 3 - PIX_HEIGHT / 2 - 2;
+		  else
+			  camScroll.y = playerPos.y + PIX_HEIGHT / 3 - PIX_HEIGHT / 2 + 2;
+	  }
+    else if (playVel.y > 0)
+      playVel.y += 1 + (prevVel.y > 0);
+    else if (playVel.y < 0)
+      playVel.y -= 1 + (prevVel.y < 0);
+  }
+
+  prevVel = playVel;
+
+  camScroll.x += playVel.x;
+  camScroll.y += playVel.y;
 
   BoundToMap(camScroll, PIX_WIDTH, PIX_HEIGHT);
 

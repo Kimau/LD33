@@ -3,6 +3,7 @@
 #include "global.h"
 #include "sprite.h"
 #include "game.h"
+#include <algorithm>
 
 enum TileId {
   TILE_ROAD,
@@ -237,90 +238,15 @@ void GameState::Update() {
   int pitch;
   SDL_LockTexture(pTexLight, NULL, (void**)(&pix), &pitch);
   
-  int maxL = 31;
   int c = 0;
   for (int y = 0; y < MapSize.h; ++y) {
     for (int x = 0; x < MapSize.w; ++x) {
-	  pix[c] = (s_Tiles[c].id == TILE_HOUSE) << maxL;
+		pix[c] = ((s_Tiles[c].id == TILE_HOUSE) || (s_Tiles[c].id == TILE_DOOR)) ? 0xFF : 0;
 	  c++;
     }
   }
 
-  // STUPID UPDATE
-  uint32_t* pFt = nullptr;
-  while(maxL > 1) {
-	  int maskL = 1 << maxL;
-    int c = 0;
-
-	// PARTIAL X ROW
-	// -head
-	pFt = &pix[c];
-	*pFt |= maskL & (pix[c + 1] | pix[c + MapSize.w] ) >> 1;
-	c += 1;
-	// -body
-	for (int x = MapSize.w - 2; x > 0; --x) {
-		pFt = &pix[c];
-		*pFt |= maskL & (pix[c - 1] | pix[c + 1] |
-			pix[c + MapSize.w]) >> 1;
-		c += 1;
-	}
-	// -tail
-	pFt = &pix[c];
-	*pFt |= maskL & (pix[c - 1] | pix[c + MapSize.w]) >> 1;
-	c += 1;
-	// END PARTIAL X ROW
-
-    for (int y = MapSize.h - 2; y > 0; --y) {
-      // FULL X ROW
-      // -head
-		pFt = &pix[c];
-	  *pFt |= maskL & (pix[c + 1] | pix[c - MapSize.w] |
-		  pix[c + MapSize.w]) >> 1;
-      c += 1;
-      // -body
-      for (int x = MapSize.w - 2; x > 0; --x) {
-		  pFt = &pix[c];
-		  *pFt |= maskL & (pix[c - 1] | pix[c + 1] |
-			  pix[c - MapSize.w] | pix[c + MapSize.w]) >> 1;
-        c += 1;
-      }
-      // -tail
-	  pFt = &pix[c];
-	  *pFt |= maskL & (pix[c - 1] | pix[c - MapSize.w] |
-		  pix[c + MapSize.w]) >> 1;
-      c += 1;
-      // END FULL X ROW
-    }
-
-	// PARTIAL X ROW
-	// -head
-	pFt = &pix[c];
-	*pFt |= maskL & (pix[c + 1] | pix[c - MapSize.w]) >> 1;
-	c += 1;
-	// -body
-	for (int x = MapSize.w - 2; x > 0; --x) {
-		pFt = &pix[c];
-		*pFt |= maskL & (pix[c - 1] | pix[c + 1] |
-			pix[c - MapSize.w]) >> 1;
-		c += 1;
-	}
-	// -tail
-	pFt = &pix[c];
-	*pFt |= maskL & (pix[c - 1] | pix[c - MapSize.w]) >> 1;
-	c += 1;
-	// END PARTIAL X ROW
-
-	// Reduce Light
-	maxL -= 1;
-  }
-
-  c = 0;
-  for (int y = 0; y < MapSize.h; ++y) {
-	  for (int x = 0; x < MapSize.w; ++x) {
-		  //pix[c] = 0xFF & ~pix[c];
-		  c++;
-	  }
-  }
+  LightSweep(pix);
 
   SDL_UnlockTexture(pTexLight);
 
@@ -328,6 +254,101 @@ void GameState::Update() {
   for (int b = NOOF_BUTTONS - 1; b >= 0; --b) {
     buttonMap[b] &= 1;
   }
+}
+
+
+void GameState::LightSweep(uint32_t* pix)
+{
+	
+		int c = 0;
+		uint32_t dirMask, notMask, lightfalloff;
+		uint32_t lightStep = 5;
+
+		// Split Out
+		c = 0;
+		for (int y = 0; y < MapSize.h; ++y) {
+			for (int x = 0; x < MapSize.w; ++x) {
+				uint32_t& src = pix[c++];
+				src = src & 0xFF;
+				src = (src << 24) | (src << 16) | (src << 8) | src;
+			}
+		}
+
+		// Sweep South
+		c = MapSize.w;
+		lightfalloff = lightStep << 24;
+		dirMask = 0xFF << 24;
+		notMask = ~dirMask;
+		for (int y = MapSize.h - 2; y >= 0; --y) {
+			for (int x = MapSize.w - 1; x >= 0; --x) {
+				const uint32_t& src = pix[c - MapSize.w];
+				if (src & dirMask) {
+					uint32_t& tar = pix[c];
+					tar |= (dirMask & ((dirMask & src) - lightfalloff));
+				}
+				c++;
+			}
+		}
+
+		// Sweep North
+		c = MapSize.w * MapSize.h - MapSize.w - 1;
+		lightfalloff = lightStep << 16;
+		dirMask = 0xFF << 16;
+		notMask = ~dirMask;
+		for (int y = MapSize.h - 2; y >= 0; --y) {
+			for (int x = MapSize.w - 1; x >= 0; --x) {
+				const uint32_t& src = pix[c + MapSize.w];
+				if (src & dirMask) {
+					uint32_t& tar = pix[c];
+					tar |= (dirMask & ((dirMask & src) - lightfalloff));
+				}
+				c--;
+			}
+		}
+
+		// Sweep East
+		c = 0;
+		lightfalloff = lightStep << 8;
+		dirMask = 0xFF << 8;
+		notMask = ~dirMask;
+		for (int y = MapSize.h - 1; y >= 0; --y) {
+			++c;
+			for (int x = MapSize.w - 2; x >= 0; --x) {
+				const uint32_t& src = pix[c - 1];
+				if (src & dirMask) {
+					uint32_t& tar = pix[c];
+					tar |= (dirMask & ((dirMask & src) - lightfalloff));
+				}
+				c++;
+			}
+		}
+
+		// Sweep West
+		c = MapSize.w * MapSize.h - 1;
+		lightfalloff = lightStep;
+		dirMask = 0xFF;
+		notMask = ~dirMask;
+		for (int y = MapSize.h - 1; y >= 0; --y) {
+			for (int x = MapSize.w - 2; x >= 0; --x) {
+				const uint32_t& src = pix[c + 1];
+				if (src & dirMask) {
+					uint32_t& tar = pix[c];
+					tar |= (dirMask & ((dirMask & src) - lightfalloff));
+				}
+				c--;
+			}
+			c--;
+		}
+	
+		// Combine
+		c = 0;
+		for (int y = MapSize.h - 1; y >= 0; --y) {
+			for (int x = MapSize.w - 1; x >= 0; --x) {
+				uint32_t& pFt = pix[c++];
+				//pFt = (pFt >> 24) | (pFt >> 16) | (pFt >> 8) | pFt;
+				pFt = std::max({ pFt >> 24, 0xFF & (pFt >> 16), 0xFF & (pFt >> 8), 0xFF & pFt });
+			}
+		}
 }
 
 void GameState::UpdateCamera(SDL_Point& playVel) {

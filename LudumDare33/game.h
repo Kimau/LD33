@@ -37,6 +37,8 @@ class GameState {
   void Render();
   void Update();
 
+  void LightSweep(uint32_t* pix);
+
   void UpdateCamera(SDL_Point &playVel);
 
   void GameEvent(SDL_Event *evt);

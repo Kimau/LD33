@@ -9,7 +9,7 @@
 
 #define PIX_MULTI 3
 
-#define PIX_TILE 5
+#define PIX_TILE 1
 #define PIX_HALF 2
 
 #define COL_ROAD 0x9A9F

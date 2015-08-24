@@ -12,7 +12,15 @@
 #define PIX_TILE 5
 #define PIX_HALF 2
 
-
+#define COL_ROAD 0x9A9F
+#define COL_DIRT 0x953F
+#define COL_BEACH 0xFF0F
+#define COL_SEA 0x09FF
+#define COL_GRASS 0x280F
+#define COL_FOREST 0x030F
+#define COL_HOUSE 0x000F
+#define COL_ROOF 0x420F
+#define COL_DOOR 0xFFFF
 
 struct SDLAPP {
   SDL_Window *window;

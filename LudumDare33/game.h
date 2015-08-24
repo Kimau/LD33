@@ -1,6 +1,8 @@
 #pragma once
 
-enum Buttons { B_UP, B_DOWN, B_LEFT, B_RIGHT, NOOF_BUTTONS };
+enum Buttons { B_UP, B_DOWN, B_LEFT, B_RIGHT, 
+	B_CAMUP, B_CAMDOWN, B_CAMLEFT, B_CAMRIGHT, NOOF_BUTTONS
+};
 struct SDLAPP;
 
 class GameState {
@@ -22,7 +24,11 @@ class GameState {
   // Player
   SDL_Point playerPos;
 
-  void DrawRect(SDL_Point &p, int w, int h, const SDL_Color &col);
+  void DrawGridRect(SDL_Point &p, int w, int h, const SDL_Color &col);
+  void BoundToMap(SDL_Point& pt, int w, int h) const;
+
+  int GetTiles(const SDL_Point &pt, int* fourInts) const;
+  bool UpdateMovePlayer(SDL_Point newPos);
 
  public:
   void StartGame(SDLAPP *_app);

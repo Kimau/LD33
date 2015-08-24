@@ -2,6 +2,7 @@
 #include <array>
 #include <stdio.h>
 #include "SDL.h"
+#include "global.h"
 #include "sprite.h"
 
 struct SpriteData {
@@ -64,9 +65,9 @@ void FloodHouse(uint16_t* pixs, std::list<HousePoint>& house, int x, int y,
   int c = x + y * w;
   if ((pixs[c] & 0xF) != 0xF) return;
 
-  if (pixs[c] == 0xFFFF) {
+  if (pixs[c] == COL_DOOR) {
     house.push_back(HousePoint{x, y, true});
-  } else if (pixs[c] == 0x000F) {
+  } else if (pixs[c] == COL_HOUSE) {
     house.push_back(HousePoint{x, y, false});
   }
 
@@ -182,9 +183,6 @@ void ClearBackground(uint16_t* pixs, int w, int h)
 std::list<std::list<HousePoint>> ExtractHouses(uint16_t* pixs, int w, int h) {
   int c = 0;
   std::list<std::list<HousePoint>> result;
-
-  uint16_t houseCol = 0x000F;
-  uint16_t doorCol = 0xFFFF;
 
   ClearBackground(pixs, w, h);
   

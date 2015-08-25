@@ -14,19 +14,9 @@ enum TileId {
   TILE_FOREST,
   TILE_HOUSE,
   TILE_DOOR,
+  TILE_LIGHT,
   NOOF_TILE
 };
-
-struct FloorTile {
-  TileId id;
-  int light;
-};
-
-bool isBlocking(const FloorTile& tilesDst) {
-  return (tilesDst.id == TILE_HOUSE) || (tilesDst.id == TILE_SEA);
-}
-
-static FloorTile* s_Tiles;
 
 struct House {
   SDL_Point topLeft;
@@ -38,7 +28,52 @@ struct House {
   bool isRender;
 };
 
+struct FloorTile {
+  TileId id;
+  int light;
+};
+
+//////////////////////////////////////////////////////////////////////////
+
+static FloorTile* s_Tiles;
 static std::list<House> s_houses;
+static bool s_secondSweep = false;
+
+bool isBlocking(const FloorTile& tilesDst) {
+  return (tilesDst.id == TILE_HOUSE) || (tilesDst.id == TILE_SEA);
+}
+
+int StepLight(int c, int src, uint8_t lightStep) {
+  switch (s_Tiles[c].id) {
+    case TILE_ROAD:
+      src -= lightStep * 4/5;
+      break;
+    case TILE_DIRT:
+      src -= lightStep;
+      break;
+    case TILE_BEACH:
+		src -= lightStep * 4 / 5;
+      break;
+    case TILE_SEA:
+		src -= lightStep * 3 / 4;
+      break;
+    case TILE_GRASS:
+      src -= lightStep;
+      break;
+    case TILE_FOREST:
+      src -= lightStep * 3;
+      break;
+    case TILE_HOUSE:
+      src = 0;
+      break;
+    case TILE_DOOR:
+      src -= lightStep;
+      break;
+	case TILE_LIGHT:
+		src -= lightStep;
+  };
+  return src;
+}
 
 void BuildHouse(SDL_Renderer* pRender,
                 std::list<std::list<HousePoint>>::reference& oh) {
@@ -147,7 +182,9 @@ void GameState::StartGame(SDLAPP* _app) {
   }
 
   // Setup Light
-  pTexLight = SDL_CreateTexture(app->renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, MapSize.w, MapSize.h);
+  pTexLight =
+      SDL_CreateTexture(app->renderer, SDL_PIXELFORMAT_RGBA8888,
+                        SDL_TEXTUREACCESS_STREAMING, MapSize.w, MapSize.h);
   SDL_SetTextureBlendMode(pTexLight, SDL_BLENDMODE_BLEND);
 
   // Setup Ground
@@ -184,6 +221,9 @@ void GameState::StartGame(SDLAPP* _app) {
         case COL_DOOR:
           s_Tiles[c++] = FloorTile{TILE_DOOR, 8};
           break;
+		case COL_LIGHT:
+			s_Tiles[c++] = FloorTile{ TILE_LIGHT, 8 };
+			break;
         default:
           SDL_Log("COL [%d,%d] %x", x, y, col);
       }
@@ -192,6 +232,8 @@ void GameState::StartGame(SDLAPP* _app) {
   SDL_LockSurface(pGround);
 
   pTexLevel = SDL_CreateTextureFromSurface(app->renderer, pGround);
+
+  UpdateLighting();
 }
 
 void GameState::Render() {
@@ -234,21 +276,7 @@ void GameState::Update() {
   UpdateCamera(playVel);
 
   // Update Lighting
-  uint32_t* pix;
-  int pitch;
-  SDL_LockTexture(pTexLight, NULL, (void**)(&pix), &pitch);
-  
-  int c = 0;
-  for (int y = 0; y < MapSize.h; ++y) {
-    for (int x = 0; x < MapSize.w; ++x) {
-		pix[c] = ((s_Tiles[c].id == TILE_HOUSE) || (s_Tiles[c].id == TILE_DOOR)) ? 0xFF : 0;
-	  c++;
-    }
-  }
-
-  LightSweep(pix);
-
-  SDL_UnlockTexture(pTexLight);
+  // UpdateLighting();
 
   // Clear Buttons
   for (int b = NOOF_BUTTONS - 1; b >= 0; --b) {
@@ -256,99 +284,138 @@ void GameState::Update() {
   }
 }
 
+void GameState::UpdateLighting() {
+  uint32_t* pix;
+  int pitch;
+  SDL_LockTexture(pTexLight, NULL, (void**)(&pix), &pitch);
 
-void GameState::LightSweep(uint32_t* pix)
-{
-	
-		int c = 0;
-		uint32_t dirMask, notMask, lightfalloff;
-		uint32_t lightStep = 5;
+  int c = 0;
+  for (int y = 0; y < MapSize.h; ++y) {
+    for (int x = 0; x < MapSize.w; ++x) {
+      switch (s_Tiles[c].id) {
+        case TILE_HOUSE:
+          pix[c] = 0x20;
+          break;
+        case TILE_DOOR:
+          pix[c] = 0xE0;
+          break;
+		case TILE_LIGHT:
+			pix[c] = 0xFF;
+			break;
+        default:
+          pix[c] = 0;
+          break;
+      }
 
-		// Split Out
-		c = 0;
-		for (int y = 0; y < MapSize.h; ++y) {
-			for (int x = 0; x < MapSize.w; ++x) {
-				uint32_t& src = pix[c++];
-				src = src & 0xFF;
-				src = (src << 24) | (src << 16) | (src << 8) | src;
-			}
-		}
+      c++;
+    }
+  }
 
-		// Sweep South
-		c = MapSize.w;
-		lightfalloff = lightStep << 24;
-		dirMask = 0xFF << 24;
-		notMask = ~dirMask;
-		for (int y = MapSize.h - 2; y >= 0; --y) {
-			for (int x = MapSize.w - 1; x >= 0; --x) {
-				const uint32_t& src = pix[c - MapSize.w];
-				if (src & dirMask) {
-					uint32_t& tar = pix[c];
-					tar |= (dirMask & ((dirMask & src) - lightfalloff));
-				}
-				c++;
-			}
-		}
+  LightSweep(pix, 8);
+  LightSweep(pix, 8);
+  LightSweep(pix, 8);
 
-		// Sweep North
-		c = MapSize.w * MapSize.h - MapSize.w - 1;
-		lightfalloff = lightStep << 16;
-		dirMask = 0xFF << 16;
-		notMask = ~dirMask;
-		for (int y = MapSize.h - 2; y >= 0; --y) {
-			for (int x = MapSize.w - 1; x >= 0; --x) {
-				const uint32_t& src = pix[c + MapSize.w];
-				if (src & dirMask) {
-					uint32_t& tar = pix[c];
-					tar |= (dirMask & ((dirMask & src) - lightfalloff));
-				}
-				c--;
-			}
-		}
+  c = 0;
+  for (int y = 0; y < MapSize.h; ++y) {
+    for (int x = 0; x < MapSize.w; ++x) {
+      uint32_t& pt = pix[c];
+	  // STEP INTO GROUPS
+	  pt = 0xC0 & ~pt;
 
-		// Sweep East
-		c = 0;
-		lightfalloff = lightStep << 8;
-		dirMask = 0xFF << 8;
-		notMask = ~dirMask;
-		for (int y = MapSize.h - 1; y >= 0; --y) {
-			++c;
-			for (int x = MapSize.w - 2; x >= 0; --x) {
-				const uint32_t& src = pix[c - 1];
-				if (src & dirMask) {
-					uint32_t& tar = pix[c];
-					tar |= (dirMask & ((dirMask & src) - lightfalloff));
-				}
-				c++;
-			}
-		}
+	  /*
+      if (pt < 25) {
+        pt = (((25 - pt) * 3) << 8) + 0xDD;
+      } else {
+        //pt = 0xFF & ~pt;
 
-		// Sweep West
-		c = MapSize.w * MapSize.h - 1;
-		lightfalloff = lightStep;
-		dirMask = 0xFF;
-		notMask = ~dirMask;
-		for (int y = MapSize.h - 1; y >= 0; --y) {
-			for (int x = MapSize.w - 2; x >= 0; --x) {
-				const uint32_t& src = pix[c + 1];
-				if (src & dirMask) {
-					uint32_t& tar = pix[c];
-					tar |= (dirMask & ((dirMask & src) - lightfalloff));
-				}
-				c--;
-			}
-			c--;
-		}
-	
-		// Combine
-		c = 0;
-		for (int y = MapSize.h - 1; y >= 0; --y) {
-			for (int x = MapSize.w - 1; x >= 0; --x) {
-				uint32_t& pFt = pix[c++];
-				//pFt = (pFt >> 24) | (pFt >> 16) | (pFt >> 8) | pFt;
-				pFt = std::max({ pFt >> 24, 0xFF & (pFt >> 16), 0xFF & (pFt >> 8), 0xFF & pFt });
-			}
-		}
+
+      }*/
+      c++;
+    }
+  }
+
+  SDL_UnlockTexture(pTexLight);
+}
+
+void GameState::LightSweep(uint32_t* pixSrc, uint8_t lightStep) {
+  int c;
+  uint32_t* pix = pixSrc;
+
+  // Sweep South
+  c = MapSize.w;
+  for (int y = MapSize.h - 2; y >= 0; --y) {
+    for (int x = MapSize.w - 1; x >= 0; --x) {
+      int src = pix[c - MapSize.w];
+      src = StepLight(c, src, lightStep);
+
+      uint32_t& tar = pix[c];
+      if (src > (int)tar) tar = src;
+
+      c++;
+    }
+  }
+
+  // Sweep North
+  c = MapSize.w * MapSize.h - MapSize.w - 1;
+  for (int y = MapSize.h - 2; y >= 0; --y) {
+    for (int x = MapSize.w - 1; x >= 0; --x) {
+      int src = pix[c + MapSize.w];
+      src = StepLight(c, src, lightStep);
+
+      uint32_t& tar = pix[c];
+      if (src > (int)tar) tar = src;
+
+      c--;
+    }
+  }
+
+  // Sweep East
+  c = 0;
+  for (int y = MapSize.h - 1; y >= 0; --y) {
+    c++;
+    for (int x = MapSize.w - 2; x >= 0; --x) {
+      int src = pix[c - 1];
+      src = StepLight(c, src, lightStep);
+
+      uint32_t& tar = pix[c];
+      if (src > (int)tar) tar = src;
+
+      c++;
+    }
+  }
+
+  // Sweep West
+  c = MapSize.w * MapSize.h - 1;
+  for (int y = MapSize.h - 1; y >= 0; --y) {
+    for (int x = MapSize.w - 2; x >= 0; --x) {
+      int src = pix[c + 1];
+      src = StepLight(c, src, lightStep);
+
+      uint32_t& tar = pix[c];
+      if (src > (int)tar) tar = src;
+
+      c--;
+    }
+    c--;
+  }
+
+  // Check Diag
+  c = MapSize.w;
+  int diagLightStep = lightStep*3/2;
+  for (int y = MapSize.h - 3; y >= 0; --y) {
+	  c++;
+	  for (int x = MapSize.w - 3; x >= 0; --x) {
+		  
+		  pix[c] = std::max({ 
+			  StepLight(c, pix[c - 1 + MapSize.w], diagLightStep),
+			  StepLight(c, pix[c - 1 - MapSize.w], diagLightStep),
+			  StepLight(c, pix[c + 1 + MapSize.w], diagLightStep),
+			  StepLight(c, pix[c + 1 - MapSize.w], diagLightStep),
+			  (int)pix[c] });
+		  c++;
+	  }
+	  c++;
+  }
 }
 
 void GameState::UpdateCamera(SDL_Point& playVel) {
@@ -498,6 +565,10 @@ void GameState::GameEvent(SDL_Event* evt) {
           break;
         case SDL_SCANCODE_RIGHT:
           buttonMap[B_RIGHT] = 0;
+          break;
+
+        case SDL_SCANCODE_S:
+          s_secondSweep = !s_secondSweep;
           break;
 
         case SDL_SCANCODE_I:

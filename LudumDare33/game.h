@@ -30,16 +30,15 @@ class GameState {
   void BoundToMap(SDL_Point& pt, int w, int h) const;
 
   int GetTiles(const SDL_Point &pt, int* fourInts) const;
+  void LightSweep(uint32_t* pix, uint8_t lightStep);
+
+  void UpdateLighting();
+  void UpdateCamera(SDL_Point &playVel);
   bool UpdateMovePlayer(SDL_Point newPos);
 
  public:
   void StartGame(SDLAPP *_app);
   void Render();
   void Update();
-
-  void LightSweep(uint32_t* pix);
-
-  void UpdateCamera(SDL_Point &playVel);
-
   void GameEvent(SDL_Event *evt);
 };
